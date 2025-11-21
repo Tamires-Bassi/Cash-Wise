@@ -3,37 +3,46 @@ import 'package:fl_chart/fl_chart.dart'; // Import do fl_chart para gráficos
 import 'package:provider/provider.dart'; // Import do Provider para gerenciamento de estado
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import do Firestore
 import 'package:cash_wise/providers/transaction_provider.dart'; // Import do provider de transações
-import 'package:cash_wise/models/transaction_model.dart'; // Necessário para o enum
-import 'package:cash_wise/icons/custom_icons.dart'; // Import dos ícones customizados
+import 'package:cash_wise/models/transaction_model.dart'; // Import do modelo de transação
+import 'package:cash_wise/icons/custom_icons.dart'; // Import dos ícones personalizados
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
 
   @override
-  State<CategoriesScreen> createState() => CategoriasScreenState(); // Cria o estado do widget
+  State<CategoriesScreen> createState() => CategoriesScreenState(); // Cria o estado da tela
 }
 
-// Tela para visualizar gastos por categoria
-class CategoriasScreenState extends State<CategoriesScreen> {
-  int? categoriaSelecionada; 
+// Tela de categorias com gráfico de pizza e lista de categorias
+class CategoriesScreenState extends State<CategoriesScreen> {
+  int? categoriaSelecionada;
+  
+  // Variável para armazenar o Stream e evitar recargas desnecessárias
+  late Stream<QuerySnapshot> _transactionsStream;
 
-  // Função auxiliar para agrupar dados do Firestore
+  @override
+  void initState() {
+    super.initState();
+    // Inicializa o Stream apenas uma vez quando a tela abre
+    _transactionsStream = Provider.of<TransactionProvider>(context, listen: false).transactionsStream;
+  }
+
+  // Função para agrupar dados por categoria
   List<Map<String, dynamic>> _agruparDados(List<QueryDocumentSnapshot> docs) {
-    Map<String, Map<String, dynamic>> agrupado = {}; // Mapa temporário
+    Map<String, Map<String, dynamic>> agrupado = {};
 
     // Agrupa os dados por categoria
     for (var doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
-      // Filtra apenas despesas (pois gráfico de gastos geralmente é só despesa)
-      if (data['type'] != TransactionType.despesa.toString()) continue;
+      if (data['type'] != TransactionType.despesa.toString()) continue; // Considera apenas despesas
 
       String catName = data['categoryName'];
       double valor = (data['value'] as num).toDouble();
 
-      // Agrupa os valores por categoria
+      // Soma os valores por categoria
       if (agrupado.containsKey(catName)) {
         agrupado[catName]!['valor'] += valor;
-      } else { // Nova categoria
+      } else { // Cria nova entrada se a categoria não existir
         agrupado[catName] = {
           'valor': valor,
           'nome': catName,
@@ -42,14 +51,11 @@ class CategoriasScreenState extends State<CategoriesScreen> {
         };
       }
     }
-    return agrupado.values.toList(); // Retorna como lista
+    return agrupado.values.toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TransactionProvider>(context, listen: false); // Acessa o provider
-
-    // Construção da UI da tela
     return Scaffold(
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
@@ -62,50 +68,34 @@ class CategoriasScreenState extends State<CategoriesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
+      // Usa a variável _transactionsStream em vez de chamar o provider direto
       body: StreamBuilder<QuerySnapshot>(
-        stream: provider.transactionsStream,
+        stream: _transactionsStream, 
         builder: (context, snapshot) {
-          // Verifica se houve erro na conexão
+          // Tratamento de erros e estados de carregamento
           if (snapshot.hasError) {
-            return const Center(
-              child: Text(
-                'Erro ao carregar dados.',
-                style: TextStyle(color: Colors.white54, fontSize: 16),
-              ),
-            );
+            return const Center(child: Text('Erro ao carregar dados.', style: TextStyle(color: Colors.white54)));
           }
 
-          // Mostra loading apenas se estiver aguardando e não tiver dados ainda
+          // Exibe indicador de carregamento enquanto aguarda os dados
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
-          // Verifica se a lista de documentos está vazia ou nula
+          
+          // Verifica se há dados disponíveis
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text(
-                'Nenhuma despesa registrada.',
-                style: TextStyle(color: Colors.white54, fontSize: 16),
-              ),
-            );
+            return const Center(child: Text('Nenhuma despesa registrada.', style: TextStyle(color: Colors.white54)));
           }
+ 
+          final categorias = _agruparDados(snapshot.data!.docs); // Agrupa os dados por categoria
 
-          // Processa os dados
-          final categorias = _agruparDados(snapshot.data!.docs);
-
-          // Verifica se após filtrar (só despesas) a lista ficou vazia
+          // Verifica se há categorias após o agrupamento
           if (categorias.isEmpty) {
-            return const Center(
-              child: Text(
-                'Nenhuma despesa registrada.',
-                style: TextStyle(color: Colors.white54, fontSize: 16),
-              ),
-            );
+            return const Center(child: Text('Nenhuma despesa registrada.', style: TextStyle(color: Colors.white54)));
           }
 
-          final total = categorias.fold(0.0, (sum, c) => sum + (c['valor'] as double)); // Calcula o total
+          final total = categorias.fold(0.0, (sum, c) => sum + (c['valor'] as double)); // Calcula o total das despesas
 
-          // Construção do gráfico e da lista
           return Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -117,16 +107,20 @@ class CategoriasScreenState extends State<CategoriesScreen> {
                       sectionsSpace: 2,
                       centerSpaceRadius: 40,
                       pieTouchData: PieTouchData(
-                        touchCallback: (event, response) {
-                          // Atualiza a categoria selecionada ao tocar
+                        touchCallback: (FlTouchEvent event, PieTouchResponse? response) {
+                          // Só atualiza a tela se a seleção realmente mudar
                           if (!event.isInterestedForInteractions || response == null || response.touchedSection == null) {
-                            setState(() => categoriaSelecionada = null); // Deseleciona se tocar fora
+                            if (categoriaSelecionada != null) {
+                              setState(() => categoriaSelecionada = null);
+                            }
                             return;
                           }
-                          // Seleciona a categoria tocada
-                          setState(() {
-                            categoriaSelecionada = response.touchedSection!.touchedSectionIndex;
-                          });
+                          
+                          // Atualiza a categoria selecionada
+                          final newIndex = response.touchedSection!.touchedSectionIndex;
+                          if (categoriaSelecionada != newIndex) {
+                            setState(() => categoriaSelecionada = newIndex);
+                          }
                         },
                       ),
                       sections: List.generate(categorias.length, (i) {
@@ -151,8 +145,6 @@ class CategoriasScreenState extends State<CategoriesScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                
-                // Lista de Legenda
                 Expanded(
                   child: ListView.separated(
                     itemCount: categorias.length,
