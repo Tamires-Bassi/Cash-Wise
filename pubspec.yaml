@@ -38,6 +38,11 @@ dependencies:
   fl_chart: ^1.1.1 # Charting library
   provider: ^6.1.2 # State management
   intl: ^0.20.2 # Internationalization and localization
+  firebase_core: ^4.2.1 # Firebase core
+  firebase_auth: ^6.1.2 # Firebase authentication
+  cloud_firestore: ^6.1.0 # Cloud Firestore
+  http: ^1.6.0  # HTTP client
+  
 
 dev_dependencies:
   flutter_test:

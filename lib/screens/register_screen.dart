@@ -1,30 +1,28 @@
-import 'package:flutter/material.dart'; // Importa o pacote Material, que contém todos os widgets básicos do Flutter
+import 'package:flutter/material.dart'; // Import do Flutter material
+import 'package:firebase_auth/firebase_auth.dart'; // Import do Firebase Auth
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import do Firestore
 
-// MUDANÇA: Convertido para StatefulWidget
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState(); // Cria o estado mutável da tela
+  State<RegisterScreen> createState() => _RegisterScreenState(); // Cria o estado do widget
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Chave para controlar o formulário e ativar a validação
-  final _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>(); // Chave do formulário
 
-  // Controladores para ler o texto dos campos
+  // Controladores
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController(); // <<< NOVO CAMPO (RF002)
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  // Variável para mostrar o loading no botão
-  bool _isLoading = false;
+  bool _isLoading = false; // Indica se está carregando
 
-  // Limpa os controladores quando a tela é descartada
   @override
-  void dispose() {
+  void dispose() { // Libera os controladores ao descartar o widget
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -33,17 +31,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // Função para exibir o AlertDialog de erro
+  // Mostra erros na tela
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.grey[850], 
+        backgroundColor: Colors.grey[850],
         title: const Text('Erro no Cadastro', style: TextStyle(color: Colors.white)),
         content: Text(message, style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(), // Fecha o diálogo
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('OK', style: TextStyle(color: Color.fromARGB(255, 183, 137, 212))),
           ),
         ],
@@ -51,277 +49,182 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // Função para lidar com o clique no botão "Cadastrar"
-  void _submitRegister() {
-    // Aciona a validação do formulário
-    final isValid = _formKey.currentState?.validate() ?? false;
-    if (!isValid) {
-      return; // Se inválido, não faz nada
-    }
+  // Lógica de Cadastro com Firebase
+  Future<void> _submitRegister() async {
+    final isValid = _formKey.currentState?.validate() ?? false; // Valida o formulário
+    if (!isValid) return; // Se inválido, retorna
 
-    setState(() { _isLoading = true; }); // Mostra o loading
+    setState(() => _isLoading = true); // Indica que está carregando
 
-  
-    final email = _emailController.text;
-    final password = _passwordController.text;
-
-    // Simulação de delay da rede
-    Future.delayed(const Duration(seconds: 1), () {
-      // Simulação de sucesso
-      setState(() { _isLoading = false; });
-
-      // Mostra SnackBar de sucesso
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cadastro realizado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
+    try {
+      // Criar usuário no Authentication
+      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
-      // Volta para a tela de Login
-      Navigator.of(context).pop();
+      // Salvar dados adicionais no Firestore
+      await FirebaseFirestore.instance.collection('usuarios').doc(userCredential.user!.uid).set({
+        'nome': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'telefone': _phoneController.text.trim(),
+        'uid': userCredential.user!.uid,
+        'criadoEm': DateTime.now().toIso8601String(),
+      });
 
-    });
+      if (mounted) { // Verifica se o widget ainda está montado
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cadastro realizado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Volta para o Login
+        Navigator.of(context).pop();
+      }
+
+      // Tratar erros específicos do Firebase Auth
+    } on FirebaseAuthException catch (e) { 
+      String msg = 'Ocorreu um erro ao cadastrar.';
+      if (e.code == 'weak-password') {
+        msg = 'A senha fornecida é muito fraca.';
+      } else if (e.code == 'email-already-in-use') {
+        msg = 'Já existe uma conta com este e-mail.';
+      } else if (e.code == 'invalid-email') {
+        msg = 'O e-mail é inválido.';
+      }
+      
+      // Mostrar diálogo de erro
+      _showErrorDialog(msg); 
+    } catch (e) {
+      _showErrorDialog('Erro inesperado: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false); // Para de carregar se o widget ainda estiver montado
+    }
   }
 
   @override
-  Widget build(BuildContext context) { // Constrói a interface da tela
-    final size = MediaQuery.of(context).size;
-    final screenHeight = size.height;
-    final screenWidth = size.width;
-
-    return Scaffold(
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size; 
+    
+    // Construção da interface de registro
+    return Scaffold( 
       backgroundColor: Colors.grey[900],
       body: Center(
         child: SingleChildScrollView(
-          // Adicionado o widget Form
+          padding: const EdgeInsets.all(24),
           child: Form(
-            key: _formKey, // Conecta a chave ao formulário
+            key: _formKey,
             child: Column(
               children: [
-                // Logo
                 Image.asset(
                   'assets/images/Logo.png',
-                  width: screenWidth * 0.65,
-                  height: screenHeight * 0.18,
+                  width: size.width * 0.5,
                   fit: BoxFit.contain,
                 ),
-                SizedBox(height: screenHeight * 0.03),
+                const SizedBox(height: 30),
 
-                // Fomulário de cadastro
-                Container(
-                  width: screenWidth * 0.70,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextFormField( 
-                        controller: _nameController, // Controlador do nome
-                        decoration: InputDecoration(
-                          labelText: 'Nome',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          filled: true,
-                          fillColor: Colors.white12,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            vertical: screenHeight * 0.01,
-                            horizontal: 12,
-                          ),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        keyboardType: TextInputType.name,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) { // Verifica se está vazio
-                            return 'Por favor, insira seu nome.';
-                          }
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: screenHeight * 0.015),
+                // Nome
+                TextFormField(
+                  controller: _nameController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('Nome'),
+                  validator: (value) => (value == null || value.isEmpty) ? 'Informe seu nome.' : null,// Validação simples de nome
+                ),
+                const SizedBox(height: 15),
 
-                      TextFormField(
-                        controller: _emailController, // Controlador do e-mail
-                        decoration: InputDecoration(
-                          labelText: 'E-mail',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          filled: true,
-                          fillColor: Colors.white12,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            vertical: screenHeight * 0.01,
-                            horizontal: 12,
-                          ),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) { // Verifica se está vazio
-                            return 'Por favor, insira seu e-mail.';
-                          }
-                          if (!value.contains('@') || !value.contains('.')) { // Verificação simples de e-mail válido
-                            return 'Por favor, insira um e-mail válido.';
-                          }
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: screenHeight * 0.015),
+                // E-mail
+                TextFormField(
+                  controller: _emailController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('E-mail'),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || !value.contains('@')) return 'E-mail inválido.'; // Validação simples de e-mail
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 15),
 
-                      TextFormField(
-                        controller: _phoneController, // Controlador do telefone
-                        decoration: InputDecoration(
-                          labelText: 'Telefone',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          filled: true,
-                          fillColor: Colors.white12,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            vertical: screenHeight * 0.01,
-                            horizontal: 12,
-                          ),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        keyboardType: TextInputType.phone,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) { // Verifica se está vazio
-                            return 'Por favor, insira seu telefone.';
-                          }
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: screenHeight * 0.015),
+                // Telefone (Campo extra exigido no RF002)
+                TextFormField(
+                  controller: _phoneController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('Telefone'),
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => (value == null || value.isEmpty) ? 'Informe seu telefone.' : null, // Validação simples de telefone
+                ),
+                const SizedBox(height: 15),
 
-                      TextFormField(
-                        controller: _passwordController, // Controlador da senha
-                        decoration: InputDecoration(
-                          labelText: 'Senha',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          filled: true,
-                          fillColor: Colors.white12,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            vertical: screenHeight * 0.01,
-                            horizontal: 12,
-                          ),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        obscureText: true,
-                        // MUDANÇA: Validador (RF002)
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) { // Verifica se está vazio
-                            return 'Por favor, insira uma senha.';
-                          }
-                          if (value.length < 6) { // Verifica tamanho mínimo
-                            return 'A senha deve ter no mínimo 6 caracteres.';
-                          }
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: screenHeight * 0.015),
+                // Senha
+                TextFormField(
+                  controller: _passwordController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('Senha'),
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Informe uma senha.';
+                    // Validação de senha forte
+                    // Pelo menos 8 chars, 1 maiúscula, 1 minúscula, 1 número, 1 especial
+                    String pattern = r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[!@#\$&*~]).{8,}$';
+                    if (!RegExp(pattern).hasMatch(value)) {
+                      return 'Mínimo 8 caracteres, letra Maiúscula, minúscula, número e símbolo (!@#).';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 15),
 
-                      TextFormField(
-                        controller: _confirmPasswordController, // Controlador da confirmação de senha
-                        decoration: InputDecoration(
-                          labelText: 'Confirmar Senha',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          filled: true,
-                          fillColor: Colors.white12,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            vertical: screenHeight * 0.01,
-                            horizontal: 12,
-                          ),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        obscureText: true,
-                        // MUDANÇA: Validador (RF002)
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) { // Verifica se está vazio
-                            return 'Por favor, confirme sua senha.';
-                          }
-                          if (value != _passwordController.text) { // Verifica se as senhas coincidem
-                            return 'As senhas não coincidem.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
+                // Confirmar Senha
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('Confirmar Senha'),
+                  obscureText: true,
+                  validator: (value) {
+                    if (value != _passwordController.text) return 'As senhas não conferem.';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 30),
 
-                      // Botão de cadastrar
-                      Center(
-                        child: SizedBox(
-                          width: 250,
-                          height: 48,
-                          child: ElevatedButton(
-                            // MUDANÇA: Chama a função _submitRegister
-                            onPressed: _isLoading ? null : _submitRegister,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color.fromARGB(255, 71, 29, 97),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: _isLoading // Mostra o loading ou o texto
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 3,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Cadastrar',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Link para voltar ao login
-                      Center(
-                        child: SizedBox(
-                          width: 250,
-                          height: 40,
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.pop(context); // Volta para a tela anterior
-                            },
-                            child: const Text(
-                              'Já tem uma conta', // Texto do link
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                // Botão Cadastrar
+                SizedBox(
+                  width: 250,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _submitRegister,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 71, 29, 97),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
+                        : const Text('Cadastrar', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
+                ),
+                
+                const SizedBox(height: 15),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Já tem uma conta? Entrar', style: TextStyle(color: Colors.white70)),
                 ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  // Decoração dos campos de entrada
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      filled: true,
+      fillColor: Colors.white12,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
     );
   }
 }

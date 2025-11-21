@@ -1,19 +1,19 @@
-import 'package:flutter/material.dart'; // Importa o pacote Material, que contém todos os widgets básicos do Flutter
-import 'package:provider/provider.dart'; // Importa o Provider
-import 'package:cash_wise/providers/transaction_provider.dart'; // Importa o TransactionProvider
-import 'package:cash_wise/models/transaction_model.dart'; // Importa o modelo de transação
-import 'package:cash_wise/icons/custom_icons.dart'; // Importa o widget CustomIcons
+import 'package:flutter/material.dart'; // Import do Flutter material
+import 'package:provider/provider.dart'; // Import do Provider para gerenciamento de estado
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import do Firestore
+import 'package:cash_wise/providers/transaction_provider.dart'; // Import do provider de transações
+import 'package:cash_wise/icons/custom_icons.dart'; // Import dos ícones customizados
+import 'package:cash_wise/models/transaction_model.dart'; // Necessário para o enum
 
 class TransactionsListScreen extends StatelessWidget {
   const TransactionsListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Obtém a lista de transações do provedor
-    final transactions =
-        Provider.of<TransactionProvider>(context).transactions; // Lista de transações
+    final provider = Provider.of<TransactionProvider>(context, listen: false); // Acessa o provider
 
-    return Scaffold(
+   // Construção da UI da tela 
+   return Scaffold(
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
         backgroundColor: Colors.grey[900],
@@ -21,83 +21,64 @@ class TransactionsListScreen extends StatelessWidget {
         title: const Text('Todas as Transações'),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          color: Colors.white,
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        // Verifica se a lista de transações está vazia
-        child: transactions.isEmpty
-            ? const Center(
-                child: Text(
-                  'Nenhuma transação registrada.',
-                  style: TextStyle(color: Colors.white54, fontSize: 16),
-                ),
-              )
-            : ListView.separated( // Lista de transações
-                itemCount: transactions.length, // Número de transações
-                separatorBuilder: (context, index) => // Separador entre os itens
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  //
-                  final tx = transactions[index]; // Transação atual
-                  final bool isExpense = tx.type == TransactionType.despesa; // Verifica se é despesa
+      body: StreamBuilder<QuerySnapshot>(
+        stream: provider.transactionsStream,
+        builder: (context, snapshot) {
+          // Tratamento de estados 
+          if (snapshot.connectionState == ConnectionState.waiting) { // Enquanto carrega
+            return const Center(child: CircularProgressIndicator()); // Indicador de carregamento
+          }
+          // Se não houver dados ou estiver vazio
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) { 
+            return const Center(child: Text('Nenhuma transação registrada.', style: TextStyle(color: Colors.white54)));
+          }
 
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[850],
-                      borderRadius: BorderRadius.circular(12),
+          // Dados disponíveis
+          final docs = snapshot.data!.docs;
+
+          // Lista de transações
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final data = docs[index].data() as Map<String, dynamic>;
+              final isExpense = data['type'] == TransactionType.despesa.toString();
+
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                decoration: BoxDecoration(color: Colors.grey[850], borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    CustomIcons(
+                      icon: IconData(data['categoryIconCode'], fontFamily: 'MaterialIcons'),
+                      backgroundColor: Color(data['categoryColorValue']),
+                      iconColor: Colors.white,
                     ),
-                    child: Row(
-                      children: [
-                        // Ícone da categoria
-                        CustomIcons(
-                          icon: tx.categoryIconData,
-                          backgroundColor: tx.categoryColor,
-                          iconColor: Colors.white,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tx.description,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500),
-                              ),
-                              Text(
-                                tx.categoryName,
-                                style: const TextStyle(
-                                    color: Colors.white70, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Valor
-                        Text(
-                          '${isExpense ? '-' : '+'} R\$ ${tx.value.toStringAsFixed(2)}', // Formata o valor com 2 casas decimais
-                          style: TextStyle(
-                            color: isExpense
-                                ? Colors.red[400]
-                                : Colors.green[400],
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(data['description'], style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+                          Text(data['categoryName'], style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                        ],
+                      ),
                     ),
-                  );
-                },
-              ),
+                    Text(
+                      '${isExpense ? '-' : '+'} R\$ ${(data['value'] as num).toStringAsFixed(2)}',
+                      style: TextStyle(color: isExpense ? Colors.red[400] : Colors.green[400], fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

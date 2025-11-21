@@ -1,38 +1,50 @@
-import 'package:flutter/material.dart'; // Importa o pacote Material, que contém todos os widgets básicos do Flutter
-import 'package:device_preview/device_preview.dart'; // Importa o DevicePreview
-import 'package:cash_wise/screens/login_screen.dart'; // Importa a tela de login
-import 'package:cash_wise/screens/register_screen.dart'; // Importa a tela de cadastro
-import 'package:cash_wise/screens/forgot_password_screen.dart'; // Importa a tela de recuperação de senha
-import 'package:cash_wise/screens/home_screen.dart'; // Importa a tela inicial (home)
-import 'package:cash_wise/screens/categories_screen.dart'; // Importa a tela de categorias
-import 'package:cash_wise/screens/about_screen.dart'; // Importa a tela Sobre
-import 'package:cash_wise/screens/accounts_screen.dart'; // Importa a tela Contas
-import 'package:cash_wise/screens/add_transaction_screen.dart'; // Importa a tela Adicionar Transação
-import 'package:cash_wise/screens/transactions_list_screen.dart'; // Importa a tela Lista de Transações
-import 'package:provider/provider.dart'; // Importa o Provider
-import 'package:cash_wise/providers/transaction_provider.dart' ; // Importa o TransactionProvider
-void main() { 
-  runApp(  
-    DevicePreview( // Inicia o DevicePreview
-      enabled: true, // Habilita o DevicePreview
-      builder: (context) => const MyApp(), // Passa o widget raiz do app para o DevicePreview
+import 'package:flutter/material.dart'; // Import do Flutter material
+import 'package:device_preview/device_preview.dart'; // Import do Device Preview
+import 'package:firebase_core/firebase_core.dart'; // Import do Firebase
+import 'package:provider/provider.dart'; // Import do Provider para gerenciamento de estado
+import 'firebase_options.dart'; // Arquivo gerado automaticamente
+import 'package:cash_wise/screens/login_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/screens/register_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/screens/forgot_password_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/screens/home_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/screens/categories_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/screens/about_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/screens/accounts_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/screens/add_transaction_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/screens/transactions_list_screen.dart'; // Import das telas do aplicativo
+import 'package:cash_wise/providers/transaction_provider.dart'; // Import do provider de transações
+import 'package:cash_wise/screens/search_screen.dart'; // Import das telas do aplicativo
+
+void main() async {
+  // Garante que o Flutter esteja pronto antes de iniciar o Firebase
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inicializa o Firebase com a configuração gerada
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  runApp( // Inicia o aplicativo com Device Preview
+    DevicePreview(
+      enabled: true,
+      builder: (context) => const MyApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatelessWidget { // Widget raiz do aplicativo
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => TransactionProvider(), // Cria o nosso gerenciador
+      create: (context) => TransactionProvider(), // Provedor de transações
       child: MaterialApp(
-        useInheritedMediaQuery: true, // Permite que o DevicePreview controle a mídia
-        debugShowCheckedModeBanner: false, // Remove a faixa de debug
-        title: 'CashWise', // Título do app
-        builder: DevicePreview.appBuilder, // Configura o DevicePreview
-        locale: DevicePreview.locale(context), //
+        useInheritedMediaQuery: true,
+        debugShowCheckedModeBanner: false,
+        title: 'CashWise',
+        builder: DevicePreview.appBuilder,
+        locale: DevicePreview.locale(context),
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
@@ -40,25 +52,26 @@ class MyApp extends StatelessWidget {
             brightness: Brightness.dark,
           ),
         ),
-
-        initialRoute: '/login', // Define a rota inicial do app, a tela que aparece primeiro
-        routes: { // Define as rotas do app, cada rota é uma tela
-          '/login': (context) => const LoginScreen(), // Rota para a tela de login
-          '/register': (context) => const RegisterScreen(), // Rota para a tela de cadastro
+        // Rota inicial
+        initialRoute: '/login',
+        routes: {
+          '/login': (context) => const LoginScreen(),
+          '/register': (context) => const RegisterScreen(),
           '/forgot_password': (context) => const ForgotPasswordScreen(),
-          '/home': (context) => const HomeScreen(), // Rota para a tela de recuperação de senha
-          '/categories': (context) => const CategoriesScreen(), // Rota para a tela inicial (home)
-          '/about': (context) => const AboutScreen(), // Rota para a tela Sobre
-          '/accounts': (context) => const AccountsScreen(), // Rota para a tela Contas
-          '/add_transaction': (context) => const AddTransactionScreen(), // Rota para a tela Adicionar Transação
-          '/transactions_list': (context) => const TransactionsListScreen(),  // Rota para a tela Lista de Transações
+          '/home': (context) => const HomeScreen(),
+          '/categories': (context) => const CategoriesScreen(),
+          '/about': (context) => const AboutScreen(),
+          '/accounts': (context) => const AccountsScreen(),
+          '/add_transaction': (context) => const AddTransactionScreen(),
+          '/transactions_list': (context) => const TransactionsListScreen(),
+          '/search': (context) => const SearchScreen(),
         },
       ),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
+class MyHomePage extends StatefulWidget { // Widget de página inicial
   const MyHomePage({super.key, required this.title});
 
   // This widget is the home page of your application. It is stateful, meaning
