@@ -18,13 +18,15 @@ class AddTransactionScreenState extends State<AddTransactionScreen> {
   final _valueController = TextEditingController();
 
   int _selectedTransactionType = 0; // 0 = Despesa, 1 = Receita
-  Map<String, dynamic>? _selectedCategoryMap; // Categoria selecionada
+  
+  // Armazena o nome da categoria selecionada (String) para evitar erros de referência no Dropdown
+  String? _selectedCategoryName; 
   
   // Agora guardamos o ID do documento da conta, não o objeto inteiro
   String? _selectedAccountId; 
 
   // Lista estática de categorias
-  final List<Map<String, dynamic>> categorias = [
+  final List<Map<String, dynamic>> categoriasEstaticas = [
     {'nome': 'Alimentação', 'iconData': Icons.fastfood, 'bgColor': const Color(0xFFFF7043)},
     {'nome': 'Transporte', 'iconData': Icons.directions_car, 'bgColor': const Color(0xFF66BB6A)},
     {'nome': 'Lazer', 'iconData': Icons.movie, 'bgColor': const Color(0xFF7E57C2)},
@@ -35,12 +37,13 @@ class AddTransactionScreenState extends State<AddTransactionScreen> {
   ];
 
   // Salva a transação usando o provider 
-  void _saveTransaction() {
+  // Recebe a lista completa de categorias para buscar os detalhes (cor/icone) pelo nome
+  void _saveTransaction(List<Map<String, dynamic>> allCategories) {
     final description = _descriptionController.text;
     final value = double.tryParse(_valueController.text.replaceAll(',', '.'));
 
     // Validações básicas
-    if (description.isEmpty || value == null || value <= 0 || _selectedCategoryMap == null || _selectedAccountId == null) {
+    if (description.isEmpty || value == null || value <= 0 || _selectedCategoryName == null || _selectedAccountId == null) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -53,14 +56,20 @@ class AddTransactionScreenState extends State<AddTransactionScreen> {
       return;
     }
 
+    // Encontra o objeto da categoria selecionada na lista completa
+    final selectedCategoryMap = allCategories.firstWhere(
+      (cat) => cat['nome'] == _selectedCategoryName,
+      orElse: () => categoriasEstaticas[0], // Fallback seguro
+    );
+
     // Chama o provider para adicionar a transação
     Provider.of<TransactionProvider>(context, listen: false).addTransaction(
       description: description,
       value: value,
       type: _selectedTransactionType == 0 ? TransactionType.despesa : TransactionType.receita,
-      categoryName: _selectedCategoryMap!['nome'],
-      categoryIconCode: (_selectedCategoryMap!['iconData'] as IconData).codePoint,
-      categoryColorValue: (_selectedCategoryMap!['bgColor'] as Color).value,
+      categoryName: selectedCategoryMap['nome'],
+      categoryIconCode: (selectedCategoryMap['iconData'] as IconData).codePoint,
+      categoryColorValue: (selectedCategoryMap['bgColor'] as Color).value,
       accountId: _selectedAccountId!,
     );
 
@@ -73,7 +82,6 @@ class AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<TransactionProvider>(context, listen: false); // Acessa o provider
 
-    // Construção da UI da tela
     return Scaffold(
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
@@ -83,98 +91,122 @@ class AddTransactionScreenState extends State<AddTransactionScreen> {
         centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Toggle Receita/Despesa
-            Center(
-              child: ToggleButtons(
-                isSelected: [_selectedTransactionType == 0, _selectedTransactionType == 1],
-                onPressed: (index) => setState(() => _selectedTransactionType = index),
-                borderRadius: BorderRadius.circular(8),
-                selectedColor: Colors.white,
-                color: Colors.white70,
-                fillColor: _selectedTransactionType == 0 ? Colors.red[700] : Colors.green[700],
-                children: const [
-                  Padding(padding: EdgeInsets.symmetric(horizontal: 30), child: Text('Despesa')),
-                  Padding(padding: EdgeInsets.symmetric(horizontal: 30), child: Text('Receita')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+      // Envolvemos o corpo num StreamBuilder para ouvir as categorias personalizadas
+      body: StreamBuilder<QuerySnapshot>(
+        stream: provider.customCategoriesStream,
+        builder: (context, snapshot) {
+          
+          // Começa com as categorias estáticas
+          List<Map<String, dynamic>> allCategories = List.from(categoriasEstaticas);
 
-            TextField(
-              controller: _valueController,
-              decoration: _inputDecor('Valor (R\$)'),
-              style: const TextStyle(color: Colors.white, fontSize: 24),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 20),
+          // Adiciona as categorias do Firebase se houver
+          if (snapshot.hasData) {
+            final customDocs = snapshot.data!.docs;
+            for (var doc in customDocs) {
+              final data = doc.data() as Map<String, dynamic>;
+              allCategories.add({
+                'nome': data['name'],
+                'iconData': IconData(data['iconCode'], fontFamily: 'MaterialIcons'), // Reconstrói o ícone
+                'bgColor': Color(data['colorValue']), // Reconstrói a cor
+              });
+            }
+          }
 
-            TextField(
-              controller: _descriptionController,
-              decoration: _inputDecor('Descrição'),
-              style: const TextStyle(color: Colors.white),
-            ),
-            const SizedBox(height: 20),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Toggle Receita/Despesa
+                Center(
+                  child: ToggleButtons(
+                    isSelected: [_selectedTransactionType == 0, _selectedTransactionType == 1],
+                    onPressed: (index) => setState(() => _selectedTransactionType = index),
+                    borderRadius: BorderRadius.circular(8),
+                    selectedColor: Colors.white,
+                    color: Colors.white70,
+                    fillColor: _selectedTransactionType == 0 ? Colors.red[700] : Colors.green[700],
+                    children: const [
+                      Padding(padding: EdgeInsets.symmetric(horizontal: 30), child: Text('Despesa')),
+                      Padding(padding: EdgeInsets.symmetric(horizontal: 30), child: Text('Receita')),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-            // Dropdown Categorias 
-            DropdownButtonFormField<Map<String, dynamic>>(
-              initialValue: _selectedCategoryMap,
-              hint: const Text('Categoria', style: TextStyle(color: Colors.white70)),
-              dropdownColor: Colors.grey[850],
-              decoration: _inputDecor(''),
-              items: categorias.map((cat) => DropdownMenuItem(
-                value: cat,
-                child: Row(children: [
-                  Icon(cat['iconData'], color: cat['bgColor']),
-                  const SizedBox(width: 10),
-                  Text(cat['nome'], style: const TextStyle(color: Colors.white))
-                ]),
-              )).toList(),
-              onChanged: (val) => setState(() => _selectedCategoryMap = val),
-            ),
-            const SizedBox(height: 20),
+                TextField(
+                  controller: _valueController,
+                  decoration: _inputDecor('Valor (R\$)'),
+                  style: const TextStyle(color: Colors.white, fontSize: 24),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const SizedBox(height: 20),
 
-            // Dropdown Contas
-            StreamBuilder<QuerySnapshot>(
-              stream: provider.accountsStream,
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const LinearProgressIndicator(); // Enquanto carrega
-                
-                final accountsDocs = snapshot.data!.docs; // Documentos das contas 
-                
-                return DropdownButtonFormField<String>(
-                  initialValue: _selectedAccountId,
-                  hint: const Text('Conta', style: TextStyle(color: Colors.white70)),
+                TextField(
+                  controller: _descriptionController,
+                  decoration: _inputDecor('Descrição'),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 20),
+
+                // Dropdown Categorias
+                DropdownButtonFormField<String>(
+                  value: _selectedCategoryName, // Usa o nome como valor
+                  hint: const Text('Categoria', style: TextStyle(color: Colors.white70)),
                   dropdownColor: Colors.grey[850],
                   decoration: _inputDecor(''),
-                  items: accountsDocs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>; // Dados da conta
-                    return DropdownMenuItem(
-                      value: doc.id, // O valor é o ID do Firestore
-                      child: Text(data['name'], style: const TextStyle(color: Colors.white)),
-                    );
-                  }).toList(),
-                  onChanged: (val) => setState(() => _selectedAccountId = val), // Atualiza o ID selecionado
-                );
-              },
-            ),
+                  items: allCategories.map((cat) => DropdownMenuItem(
+                    value: cat['nome'] as String, // Valor é o nome
+                    child: Row(children: [
+                      Icon(cat['iconData'], color: cat['bgColor']),
+                      const SizedBox(width: 10),
+                      Text(cat['nome'], style: const TextStyle(color: Colors.white))
+                    ]),
+                  )).toList(),
+                  onChanged: (val) => setState(() => _selectedCategoryName = val),
+                ),
+                const SizedBox(height: 20),
 
-            // Botão Salvar
-            const SizedBox(height: 40),
-            SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _saveTransaction,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 71, 29, 97)),
-                child: const Text('Salvar', style: TextStyle(color: Colors.white, fontSize: 18)),
-              ),
+                // Dropdown Contas
+                StreamBuilder<QuerySnapshot>(
+                  stream: provider.accountsStream,
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const LinearProgressIndicator(); // Enquanto carrega
+                    
+                    final accountsDocs = snapshot.data!.docs; // Documentos das contas 
+                    
+                    return DropdownButtonFormField<String>(
+                      value: _selectedAccountId, // Value deve corresponder ao initialValue logicamente
+                      hint: const Text('Conta', style: TextStyle(color: Colors.white70)),
+                      dropdownColor: Colors.grey[850],
+                      decoration: _inputDecor(''),
+                      items: accountsDocs.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>; // Dados da conta
+                        return DropdownMenuItem(
+                          value: doc.id, // O valor é o ID do Firestore
+                          child: Text(data['name'], style: const TextStyle(color: Colors.white)),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setState(() => _selectedAccountId = val), // Atualiza o ID selecionado
+                    );
+                  },
+                ),
+
+                // Botão Salvar
+                const SizedBox(height: 40),
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    // Passamos a lista completa para a função de salvar encontrar os detalhes
+                    onPressed: () => _saveTransaction(allCategories),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 71, 29, 97)),
+                    child: const Text('Salvar', style: TextStyle(color: Colors.white, fontSize: 18)),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        }
       ),
     );
   }

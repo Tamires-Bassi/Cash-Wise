@@ -44,7 +44,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. Dropdown de Bancos (Estilo visual limpo)
+                  // Dropdown de Bancos (Estilo visual limpo)
                   DropdownButtonFormField<Map<String, dynamic>>(
                     dropdownColor: Colors.grey[800],
                     decoration: InputDecoration(
@@ -130,22 +130,66 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   final name = nameController.text;
                   final balance = double.parse(balanceController.text.replaceAll(',', '.'));
                   
-                  // Salva no Firebase usando os dados simples (IconData e Color)
+                  // Salva no Firebase usando os dados simples
                   Provider.of<TransactionProvider>(context, listen: false).addAccount(
                     name,
                     balance,
                     (selectedBank!['iconData'] as IconData).codePoint, // Salva o ID do ícone
-                    (selectedBank!['color'] as Color).value,           // Salva a cor
+                    (selectedBank!['color'] as Color).value, // Salva a cor
                   );
 
                   Navigator.pop(ctx);
                 }
               },
-              child: const Text('Salvar', style: TextStyle(color: Colors.purpleAccent)),
+              child: const Text('Salvar', style: TextStyle(color: Color.fromARGB(255, 175, 47, 255))),
             ),
           ],
         );
       },
+    );
+  }
+
+  // Diálogo para editar uma conta existente
+  // Permite ao usuário atualizar dados na coleção 'accounts'
+
+  void _showEditAccountDialog(BuildContext context, String accountId, String currentName) {
+    final editController = TextEditingController(text: currentName);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey[850],
+        title: const Text('Editar Conta', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: editController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: 'Nome da Conta',
+            labelStyle: TextStyle(color: Colors.white70),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              if (editController.text.isNotEmpty) {
+                // Chama o provider para atualizar no Firebase
+                Provider.of<TransactionProvider>(context, listen: false)
+                    .renameAccount(accountId, editController.text);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Conta atualizada!'), backgroundColor: Colors.green),
+                );
+              }
+            },
+            child: const Text('Salvar', style: TextStyle(color: Color.fromARGB(255, 175, 47, 255))),
+          ),
+        ],
+      ),
     );
   }
 
@@ -167,7 +211,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.purple,
+        backgroundColor: Color(0xFF6A1B9A),
         child: const Icon(Icons.add, color: Colors.white),
         onPressed: () => _showAddAccountDialog(context),
       ),
@@ -202,6 +246,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final data = docs[index].data() as Map<String, dynamic>;
+                      final accountId = docs[index].id; // ID do documento para edição
+
                       return Container(
                         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
                         decoration: BoxDecoration(
@@ -223,13 +269,26 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                 style: const TextStyle(color: Colors.white, fontSize: 16),
                               ),
                             ),
-                            Text(
-                              'R\$ ${(data['balance'] as num).toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'R\$ ${(data['balance'] as num).toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                // Botão de Editar
+                                GestureDetector(
+                                  onTap: () => _showEditAccountDialog(context, accountId, data['name']),
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(top: 4.0),
+                                    child: Icon(Icons.edit, color: Colors.white54, size: 18),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

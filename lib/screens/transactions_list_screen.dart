@@ -8,6 +8,48 @@ import 'package:cash_wise/models/transaction_model.dart'; // Necessário para o 
 class TransactionsListScreen extends StatelessWidget {
   const TransactionsListScreen({super.key});
 
+  // Diálogo para editar uma transação
+  // Permite atualizar dados na coleção 'transactions'
+  void _showEditTransactionDialog(BuildContext context, String docId, String currentDesc) {
+    final descController = TextEditingController(text: currentDesc);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey[850],
+        title: const Text('Editar Transação', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: descController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: 'Descrição',
+            labelStyle: TextStyle(color: Colors.white70),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              if (descController.text.isNotEmpty) {
+                Provider.of<TransactionProvider>(context, listen: false)
+                    .updateTransaction(docId, descController.text);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Transação atualizada!'), backgroundColor: Colors.green),
+                );
+              }
+            },
+            child: const Text('Salvar', style: TextStyle(color: Color.fromARGB(255, 175, 47, 255))),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<TransactionProvider>(context, listen: false); // Acessa o provider
@@ -47,6 +89,7 @@ class TransactionsListScreen extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final data = docs[index].data() as Map<String, dynamic>;
+              final docId = docs[index].id; // ID para edição
               final isExpense = data['type'] == TransactionType.despesa.toString();
 
               return Container(
@@ -69,9 +112,22 @@ class TransactionsListScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Text(
-                      '${isExpense ? '-' : '+'} R\$ ${(data['value'] as num).toStringAsFixed(2)}',
-                      style: TextStyle(color: isExpense ? Colors.red[400] : Colors.green[400], fontSize: 16, fontWeight: FontWeight.bold),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${isExpense ? '-' : '+'} R\$ ${(data['value'] as num).toStringAsFixed(2)}',
+                          style: TextStyle(color: isExpense ? Colors.red[400] : Colors.green[400], fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        // Botão de Editar Transação
+                        GestureDetector(
+                          onTap: () => _showEditTransactionDialog(context, docId, data['description']),
+                          child: const Padding(
+                            padding: EdgeInsets.only(top: 4.0),
+                            child: Icon(Icons.edit, color: Colors.white54, size: 18),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

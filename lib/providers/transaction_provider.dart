@@ -28,6 +28,15 @@ class TransactionProvider with ChangeNotifier {
         .snapshots();
   }
 
+  // Stream para monitorar a 4ª coleção 'categories' (Categorias Personalizadas)
+  Stream<QuerySnapshot> get customCategoriesStream {
+    if (_uid == null) return const Stream.empty();
+    return FirebaseFirestore.instance
+        .collection('categories')
+        .where('userId', isEqualTo: _uid)
+        .snapshots();
+  }
+
   // Adicionar uma nova transação e atualizar o saldo
   Future<void> addTransaction({
     required String description,
@@ -48,7 +57,7 @@ class TransactionProvider with ChangeNotifier {
       'userId': _uid,
       'description': description,
       'value': value,
-      'type': type.toString(), // Ex: "TransactionType.despesa"
+      'type': type.toString(),
       'categoryName': categoryName,
       'categoryIconCode': categoryIconCode,
       'categoryColorValue': categoryColorValue,
@@ -56,8 +65,21 @@ class TransactionProvider with ChangeNotifier {
       'date': DateTime.now().toIso8601String(),
     });
 
-    // tualiza o saldo da conta correspondente (RF004 - Atualização Automática)
+    // Atualiza o saldo da conta correspondente (RF004 - Atualização Automática)
     await _updateAccountBalance(accountId, value, type);
+  }
+ 
+  // Função para atualizaruma transação existente
+  // Para simplificar e evitar erros de cálculo de saldo, permiti editar apenas a descrição.
+  Future<void> updateTransaction(String transactionId, String newDescription) async {
+    if (_uid == null) return;
+
+    await FirebaseFirestore.instance
+        .collection('transactions')
+        .doc(transactionId)
+        .update({'description': newDescription});
+    
+    notifyListeners(); // Notifica a UI para atualizar se necessário
   }
 
   // Adicionar uma nova conta bancária
@@ -65,7 +87,7 @@ class TransactionProvider with ChangeNotifier {
     if (_uid == null) return;
     
     final docRef = FirebaseFirestore.instance.collection('accounts').doc();
-    // Insere o documento na coleção 'accounts' (RF003)
+    // Insere o documento na coleção 'accounts'
     await docRef.set({
       'id': docRef.id,
       'userId': _uid,
@@ -76,11 +98,25 @@ class TransactionProvider with ChangeNotifier {
     });
   }
 
-  // Função auxiliar: Atualiza o saldo da conta quando uma transação é criada
+  // Função para adicionar dados na 4ª coleção 'categories'
+  Future<void> addCustomCategory(String name, int iconCode, int colorValue) async {
+    if (_uid == null) return;
+
+    final catRef = FirebaseFirestore.instance.collection('categories').doc();
+    await catRef.set({
+      'id': catRef.id,
+      'userId': _uid,
+      'name': name,
+      'iconCode': iconCode,
+      'colorValue': colorValue,
+    });
+  }
+
+  // Atualiza o saldo da conta quando uma transação é criada
   Future<void> _updateAccountBalance(String accountId, double value, TransactionType type) async {
     final accountRef = FirebaseFirestore.instance.collection('accounts').doc(accountId);
 
-    // Usa "Transaction" do Firestore para garantir atomicidade (segurança dos dados)
+    // Usa "Transaction" do Firestore para garantir atomicidade
     await FirebaseFirestore.instance.runTransaction((transaction) async {
       final snapshot = await transaction.get(accountRef);
       if (!snapshot.exists) return;
