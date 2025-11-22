@@ -25,11 +25,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   // Função para exibir o diálogo de adicionar conta
   void _showAddAccountDialog(BuildContext context) {
-    final _formKey = GlobalKey<FormState>();
-    final _nameController = TextEditingController();
-    final _balanceController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController();
+    final balanceController = TextEditingController();
     
-    Map<String, dynamic>? _selectedBank; // Banco selecionado
+    Map<String, dynamic>? selectedBank; // Banco selecionado
 
     // Exibe o diálogo
     showDialog(
@@ -40,7 +40,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           title: const Text('Adicionar Conta', style: TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Form(
-              key: _formKey,
+              key: formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -68,10 +68,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       );
                     }).toList(),
                     onChanged: (value) {
-                      _selectedBank = value;
+                      selectedBank = value;
                       // Preenche o nome automaticamente se estiver vazio
-                      if (_nameController.text.isEmpty) {
-                        _nameController.text = value!['nome'];
+                      if (nameController.text.isEmpty) {
+                        nameController.text = value!['nome'];
                       }
                     },
                     // Validação para garantir que um banco seja selecionado
@@ -81,7 +81,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
                   // Nome da Conta
                   TextFormField(
-                    controller: _nameController,
+                    controller: nameController,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       labelText: 'Nome da Conta',
@@ -96,7 +96,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
                   // Saldo Inicial
                   TextFormField(
-                    controller: _balanceController,
+                    controller: balanceController,
                     style: const TextStyle(color: Colors.white),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
@@ -126,16 +126,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
             TextButton(
               onPressed: () {
                 // Valida e salva a conta
-                if (_formKey.currentState!.validate()) {
-                  final name = _nameController.text;
-                  final balance = double.parse(_balanceController.text.replaceAll(',', '.'));
+                if (formKey.currentState!.validate()) {
+                  final name = nameController.text;
+                  final balance = double.parse(balanceController.text.replaceAll(',', '.'));
                   
                   // Salva no Firebase usando os dados simples (IconData e Color)
                   Provider.of<TransactionProvider>(context, listen: false).addAccount(
                     name,
                     balance,
-                    (_selectedBank!['iconData'] as IconData).codePoint, // Salva o ID do ícone
-                    (_selectedBank!['color'] as Color).value,           // Salva a cor
+                    (selectedBank!['iconData'] as IconData).codePoint, // Salva o ID do ícone
+                    (selectedBank!['color'] as Color).value,           // Salva a cor
                   );
 
                   Navigator.pop(ctx);

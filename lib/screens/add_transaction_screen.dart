@@ -3,7 +3,7 @@ import 'package:provider/provider.dart'; // Import do Provider para gerenciament
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import do Firestore 
 import 'package:cash_wise/providers/transaction_provider.dart'; // Import do provider de transações
 import 'package:cash_wise/models/transaction_model.dart'; // Necessário para o enum
-import 'package:cash_wise/icons/custom_icons.dart'; // Import dos ícones customizados
+// Import dos ícones customizados
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
@@ -122,7 +122,7 @@ class AddTransactionScreenState extends State<AddTransactionScreen> {
 
             // Dropdown Categorias 
             DropdownButtonFormField<Map<String, dynamic>>(
-              value: _selectedCategoryMap,
+              initialValue: _selectedCategoryMap,
               hint: const Text('Categoria', style: TextStyle(color: Colors.white70)),
               dropdownColor: Colors.grey[850],
               decoration: _inputDecor(''),
@@ -147,7 +147,7 @@ class AddTransactionScreenState extends State<AddTransactionScreen> {
                 final accountsDocs = snapshot.data!.docs; // Documentos das contas 
                 
                 return DropdownButtonFormField<String>(
-                  value: _selectedAccountId,
+                  initialValue: _selectedAccountId,
                   hint: const Text('Conta', style: TextStyle(color: Colors.white70)),
                   dropdownColor: Colors.grey[850],
                   decoration: _inputDecor(''),

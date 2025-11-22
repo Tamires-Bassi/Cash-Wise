@@ -172,8 +172,9 @@ class HomeScreenState extends State<HomeScreen> {
           setState(() => _currentIndex = index);
 
           // Navegação para outras telas
-          if (index == 1) Navigator.pushNamed(context, '/accounts');
-          else if (index == 2) Navigator.pushNamed(context, '/add_transaction');
+          if (index == 1) {
+            Navigator.pushNamed(context, '/accounts');
+          } else if (index == 2) Navigator.pushNamed(context, '/add_transaction');
           else if (index == 3) Navigator.pushNamed(context, '/about');
           else if (index == 4) Navigator.pushNamed(context, '/categories');
 
