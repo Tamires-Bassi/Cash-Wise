@@ -98,4 +98,4 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
   assets:
-    - assets/images/logo.png # App logo
+    - assets/images/Logo.png # App logo

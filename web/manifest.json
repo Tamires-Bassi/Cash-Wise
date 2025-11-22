@@ -1,6 +1,6 @@
 {
-    "name": "cash_wise",
-    "short_name": "cash_wise",
+    "name": "Cash Wise",
+    "short_name": "Cash Wise",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

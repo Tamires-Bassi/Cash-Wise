@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart'; // import do Flutter material
-import 'package:firebase_auth/firebase_auth.dart'; 
+import 'package:firebase_auth/firebase_auth.dart'; // 
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
