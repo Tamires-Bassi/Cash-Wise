@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "126797725134",
+    "project_id": "cash-wise-tamiresbassi-2025",
+    "storage_bucket": "cash-wise-tamiresbassi-2025.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:126797725134:android:266f4ce6562d47e2c9bf9f",
+        "android_client_info": {
+          "package_name": "com.example.cash_wise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAv9z0srB5Ew-hn_IfHcgN-Jedyhx9UhvI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
